@@ -13,10 +13,10 @@
     <input type="text" id="surname" name="surname" required><br><br>
 
     <label for="id_number">ID Number:</label>
-    <input type="text" id="id_number" name="id_number" pattern="\d{13}" required><br><br>
+    <input type="number" id="id_number" name="id_number" pattern="\d{13}" required><br><br>
 
-    <label for="dob">Date of Birth (dd/mm/YYYY):</label>
-    <input type="text" id="dob" name="dob" pattern="\d{2}/\d{2}/\d{4}" required><br><br>
+    <label for="dob">Date of Birth:</label>
+    <input type="date" id="dob" name="dob" required><br><br>
 
     <input type="submit" name="submit" value="Submit">
     <input type="reset" name="cancel" value="Cancel">
@@ -27,13 +27,15 @@
 <?php
 require 'vendor/autoload.php'; //for if you're using Composer for MongoDB PHP library
 
+//function called when submit button is pressed on form
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     //retrieve and save form data in person variable
     $person = [
         'name' => trim($_POST['name']),
         'surname' => trim($_POST['surname']),
         '_id' => trim($_POST['id_number']),
-        'dob' => trim($_POST['dob'])
+        'dobDate' => $_POST['dob'],
+        'dob' => makeValidDOB($_POST['dob'])
     ];
 
     //validate name and surname
@@ -47,31 +49,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
         populateForm($person);
         return;
     }
-    //validate date of birth
-    if(!validDOB($person['dob'])) {
-        echo "Date of Birth must be in the format dd/mm/YYYY.";
-        populateForm($person);
-        return;
-    }
     //validate ID number
-    if(!validIdNumber($person['id_number'], $person['dob'])) {
+    if(!validIdNumber($person['_id'], $person['dob'])) {
         echo "ID number must be 13 numbers long and must match Date of Birth.";
         populateForm($person);
         return;
     }
     //check for duplicate id number
-    if(idExists($person['id'])) {
+    if(idExists($person['_id'])) {
         echo "Person with that ID number already exists.";
         populateForm($person);
         return;
     }
-    // Save to MongoDB
-    $client = new MongoDB\Client("mongodb://localhost:27017");
-    $collection = $client->local->Person;
-    $collection->insertOne($person);
-    echo "Person information has been saved successfully.";
+    //save to MongoDB
+    saveToMongoDB($person);
+    echo "Information is good. Saved to MongoDB.";
 }
-//check the string is valid - only letters, hyphens and apostrophes
+//saves the given person to the Mongo database
+function saveToMongoDB($person) {
+    $personDTO = [
+        'name' => $person['name'],
+        'surname' => $person['surname'],
+        '_id' => $person['_id'],
+        'dob' => $person['dob']
+    ];
+    $client = new MongoDB\Client("mongodb://localhost:27017");
+    $collection = $client->local->person;
+    $collection->insertOne($personDTO);
+}
+//check a string is valid - only letters, hyphens and apostrophes
 function validName($string){
     if (!preg_match("/^[a-zA-Z'-]+$/", $string)){
         return false;
@@ -90,20 +96,26 @@ function validIdNumber($id_number, $dob) {
     }else return true;
 }
 //check that the date of birth is valid
-function validDOB($dob) {
-    if (!preg_match("/^\d{2}\/\d{2}\/\d{4}$/", $dob)) return false;
-    else return true;
+function makeValidDOB($dob) {
+    return date("d/m/Y", strtotime($dob));
 }
 //check whether someone with the same id number exists in the mongo database
 function idExists($id_number) {
     $client = new MongoDB\Client("mongodb://localhost:27017");
-    $collection = $client->local->Person;
+    $collection = $client->local->person;
     $existingPerson = $collection->findOne(['_id' => $id_number]);
     if ($existingPerson) return true;
     else return false;
 }
 //populate the HTML form with the previously entered data
 function populateForm($person){
-
+    ?>
+    <script type="text/javascript">
+        document.getElementById('name').value = "<?php echo htmlspecialchars($person['name'], ENT_QUOTES, 'UTF-8'); ?>";
+        document.getElementById('surname').value = "<?php echo htmlspecialchars($person['surname'], ENT_QUOTES, 'UTF-8'); ?>";
+        document.getElementById('id_number').value = "<?php echo htmlspecialchars($person['_id'], ENT_QUOTES, 'UTF-8'); ?>";
+        document.getElementById('dob').value = "<?php echo htmlspecialchars($person['dobDate'], ENT_QUOTES, 'UTF-8'); ?>";
+    </script>
+    <?php
 }
 ?>
