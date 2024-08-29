@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Person Information</title>
+    <link rel="stylesheet" href="mystyle.css">
 </head>
 <body>
 <form method="post" action="">
+    <br>
+    <p>PERSONAL INFORMATION</p>
+    <br>
     <label for="name">Name:</label>
     <input type="text" id="name" name="name" required><br><br>
 
@@ -20,6 +24,7 @@
 
     <input type="submit" name="submit" value="Submit">
     <input type="reset" name="cancel" value="Cancel">
+    <br><br>
 </form>
 </body>
 </html>
@@ -35,7 +40,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
         'surname' => trim($_POST['surname']),
         '_id' => trim($_POST['id_number']),
         'dobDate' => $_POST['dob'],
-        'dob' => makeValidDOB($_POST['dob'])
+        'dob' => getValidDOB($_POST['dob'])
     ];
 
     //validate name and surname
@@ -62,8 +67,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
         return;
     }
     //save to MongoDB
+    echo "Information is good. Saving to MongoDB."."<br>";
     saveToMongoDB($person);
-    echo "Information is good. Saved to MongoDB.";
+    echo "Information saved to MongoDB";
 }
 //saves the given person to the Mongo database
 function saveToMongoDB($person) {
@@ -78,13 +84,13 @@ function saveToMongoDB($person) {
     $collection->insertOne($personDTO);
 }
 //check a string is valid - only letters, hyphens and apostrophes
-function validName($string){
+function validName($string):bool {
     if (!preg_match("/^[a-zA-Z'-]+$/", $string)){
         return false;
     }else return true;
 }
 //check that the id number is valid
-function validIdNumber($id_number, $dob) {
+function validIdNumber($id_number, $dob):bool {
     //check ID number against Date of Birth
     $birthYear = substr($dob, 6, 4);
     $birthMonth = substr($dob, 3, 2);
@@ -96,11 +102,11 @@ function validIdNumber($id_number, $dob) {
     }else return true;
 }
 //check that the date of birth is valid
-function makeValidDOB($dob) {
+function getValidDOB($dob) {
     return date("d/m/Y", strtotime($dob));
 }
 //check whether someone with the same id number exists in the mongo database
-function idExists($id_number) {
+function idExists($id_number):bool {
     $client = new MongoDB\Client("mongodb://localhost:27017");
     $collection = $client->local->person;
     $existingPerson = $collection->findOne(['_id' => $id_number]);
