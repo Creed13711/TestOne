@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="mystyle.css">
 </head>
 <body>
-<form method="post" action="">
+<form method="POST" action="">
     <br>
     <p>PERSONAL INFORMATION</p>
     <br>
@@ -19,8 +19,8 @@
     <label for="id_number">ID Number:</label>
     <input type="number" id="id_number" name="id_number" pattern="\d{13}" required><br><br>
 
-    <label for="dob">Date of Birth:</label>
-    <input type="date" id="dob" name="dob" required><br><br>
+    <label for="dob">Date of Birth:(dd/mm/yyyy)</label>
+    <input type="text" id="dob" name="dob" pattern="\d{2}/\d{2}/\d{4}" required><br><br>
 
     <input type="submit" name="submit" value="Submit">
     <input type="reset" name="cancel" value="Cancel">
@@ -39,8 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
         'name' => trim($_POST['name']),
         'surname' => trim($_POST['surname']),
         '_id' => trim($_POST['id_number']),
-        'dobDate' => $_POST['dob'],
-        'dob' => getValidDOB($_POST['dob'])
+        'dob' => trim($_POST['dob'])
     ];
 
     //validate name and surname
@@ -51,6 +50,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     }
     if(!validName($person['surname'])) {
         echo "Surname may contain only letters, hyphens and apostrophes.";
+        populateForm($person);
+        return;
+    }
+    //validate the dob
+    if(!checkValidDOB($person['dob'])){
+        echo "Date of birth must be in the form 'dd/mm/YYYY'";
         populateForm($person);
         return;
     }
@@ -73,15 +78,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
 }
 //saves the given person to the Mongo database
 function saveToMongoDB($person) {
-    $personDTO = [
-        'name' => $person['name'],
-        'surname' => $person['surname'],
-        '_id' => $person['_id'],
-        'dob' => $person['dob']
-    ];
     $client = new MongoDB\Client("mongodb://localhost:27017");
     $collection = $client->local->person;
-    $collection->insertOne($personDTO);
+    $collection->insertOne($person);
 }
 //check a string is valid - only letters, hyphens and apostrophes
 function validName($string):bool {
@@ -95,15 +94,17 @@ function validIdNumber($id_number, $dob):bool {
     $birthYear = substr($dob, 6, 4);
     $birthMonth = substr($dob, 3, 2);
     $birthDay = substr($dob, 0, 2);
-    if (substr($id_number, 0, 2) !== substr($birthYear, 2) ||
-        substr($id_number, 2, 2) !== $birthMonth ||
-        substr($id_number, 4, 2) !== $birthDay) {
+    if (substr($id_number, 0, 2) != substr($birthYear, 2) ||
+        substr($id_number, 2, 2) != $birthMonth ||
+        substr($id_number, 4, 2) != $birthDay) {
         return false;
     }else return true;
 }
 //check that the date of birth is valid
-function getValidDOB($dob) {
-    return date("d/m/Y", strtotime($dob));
+function checkValidDOB($dob):bool {
+    $pattern = "/^(\d{2})\/(\d{2})\/(\d{4})$/";
+    if (preg_match($pattern, $dob)) return true;
+    else return false;
 }
 //check whether someone with the same id number exists in the mongo database
 function idExists($id_number):bool {
@@ -120,7 +121,7 @@ function populateForm($person){
         document.getElementById('name').value = "<?php echo htmlspecialchars($person['name'], ENT_QUOTES, 'UTF-8'); ?>";
         document.getElementById('surname').value = "<?php echo htmlspecialchars($person['surname'], ENT_QUOTES, 'UTF-8'); ?>";
         document.getElementById('id_number').value = "<?php echo htmlspecialchars($person['_id'], ENT_QUOTES, 'UTF-8'); ?>";
-        document.getElementById('dob').value = "<?php echo htmlspecialchars($person['dobDate'], ENT_QUOTES, 'UTF-8'); ?>";
+        document.getElementById('dob').value = "<?php echo htmlspecialchars($person['dob'], ENT_QUOTES, 'UTF-8'); ?>";
     </script>
     <?php
 }
